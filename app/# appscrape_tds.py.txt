@@ -1,0 +1,42 @@
+# app/scrape_tds.py
+
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
+import time
+import json
+
+def get_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+
+def scrape_tds_site(base_url="https://tds.s-anand.net"):
+    driver = get_driver()
+    driver.get(base_url)
+    time.sleep(2)
+
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    links = [a['href'] for a in soup.find_all('a', href=True) if '/lessons/' in a['href']]
+    links = list(set(links))
+
+    content_list = []
+    for link in links:
+        full_link = base_url + link
+        driver.get(full_link)
+        time.sleep(1)
+        page_soup = BeautifulSoup(driver.page_source, 'html.parser')
+        text = page_soup.get_text(separator="\n", strip=True)
+        content_list.append({"url": full_link, "text": text})
+
+    driver.quit()
+
+    with open("app/data/tds_content.json", "w", encoding="utf-8") as f:
+        json.dump(content_list, f, indent=2, ensure_ascii=False)
+
+    print(f"Saved {len(content_list)} pages to app/data/tds_content.json")
+
+if __name__ == "__main__":
+    scrape_tds_site()
